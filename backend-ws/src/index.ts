@@ -1,38 +1,54 @@
 import { WebSocketServer, WebSocket } from "ws";
 
-const ws  = new WebSocketServer({port : 3000});
+const ws = new WebSocketServer({ port: 3000 });
 
-interface User{
-    socket : WebSocket,
-    room :string
+interface User {
+  socket: WebSocket;
+  room: string;
+  name: string;
 }
 
+let allUsers: User[] = [];
 
-let allSocket : User[] = [];
-ws.on("connection" , (socket)=>{
-    socket.on("message" , (message)=>{
-        // @ts-ignore
-        const parseMessage = JSON.parse(message)
+ws.on("connection", (socket) => {
+  socket.on("message", (message) => {
+    try {
+      const parsedMessage = JSON.parse(message.toString());
 
-        if(parseMessage.type ==="join"){
-            allSocket.push({
-                socket : socket,
-                room : parseMessage.payload.room
-            })
-        }
+      // Handle joining a room
+      if (parsedMessage.type === "join") {
+        const { room, name } = parsedMessage.payload;
+        allUsers.push({ socket, room, name });
+        console.log(`${name} joined room: ${room}`);
+      }
 
-        if (parseMessage.type === "chat") {
-            const currentUser = allSocket.find((x) => x.socket == socket)?.room;
+      // Handle chat messages
+      if (parsedMessage.type === "chat") {
+        const { message: chatMessage } = parsedMessage.payload;
+        const currentUser = allUsers.find((user) => user.socket === socket);
+        if (!currentUser) return;
 
+        allUsers
+          .filter((user) => user.room === currentUser.room)
+          .forEach((user) =>
+            user.socket.send(
+              JSON.stringify({
+                type: "chat",
+                payload: {
+                  sender: currentUser.name,
+                  message: chatMessage,
+                },
+              })
+            )
+          );
+      }
+    } catch (error) {
+      console.error("Error processing message: ", error);
+    }
+  });
 
-            
-            for( let i= 0;i<allSocket.length;i++){
-                if(allSocket[i].room === currentUser){
-                    allSocket[i].socket.send(parseMessage.payload.message)
-                }
-            }
-
-        }
-    })
-
-})
+  socket.on("close", () => {
+    allUsers = allUsers.filter((user) => user.socket !== socket);
+    console.log("Socket disconnected");
+  });
+});
