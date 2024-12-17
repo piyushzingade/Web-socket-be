@@ -2,7 +2,7 @@ import { WebSocketServer } from "ws";
 import WebSocket from "ws";
 
 let userCount = 0;
-const wss = new WebSocketServer({ port: 8080 });
+const wss = new WebSocketServer({ port: 3000 });
 
 interface User {
   socket: WebSocket;
@@ -54,4 +54,4 @@ wss.on("connection", (ws: WebSocket) => {
   });
 });
 
-console.log("Server is running at port:- ws://localhost:8080");
+console.log("Server is running at port:- ws://localhost:3000");
