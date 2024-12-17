@@ -1,41 +1,57 @@
-import { WebSocketServer, WebSocket } from "ws";
+import { WebSocketServer } from "ws";
+import WebSocket from "ws";
 
-const wss = new WebSocketServer({ port: 3000 });
+let userCount = 0;
+const wss = new WebSocketServer({ port: 8080 });
 
 interface User {
   socket: WebSocket;
-  room: string;
+  roomid: string;
 }
 
-let allSockets: User[] = [];
+const allSocket: User[] = [];
 
-wss.on("connection", (socket) => {
-  socket.on("message", (message) => {
-    // @ts-ignore
-    const parsedMessage = JSON.parse(message);
-    if (parsedMessage.type == "join") {
-      console.log("user joined room " + parsedMessage.payload.roomId);
-      allSockets.push({
-        socket,
-        room: parsedMessage.payload.roomId,
-      });
-    }
+wss.on("connection", (ws: WebSocket) => {
+  userCount++;
+  console.log(userCount);
 
-    if (parsedMessage.type == "chat") {
-      console.log("user wants to chat");
-      // const currentUserRoom = allSockets.find((x) => x.socket == socket).room
-      let currentUserRoom = null;
-      for (let i = 0; i < allSockets.length; i++) {
-        if (allSockets[i].socket == socket) {
-          currentUserRoom = allSockets[i].room;
+  ws.on("message", (data) => {
+    try {
+      const info = JSON.parse(data.toString());
+      if (info.type === "join") {
+        if (info.payload.roomid == "") {
+          return;
+        } else {
+          allSocket.push({
+            socket: ws,
+            roomid: info.payload.roomid,
+          });
+          console.log("user joined the room :" + info.payload.roomid);
         }
       }
 
-      for (let i = 0; i < allSockets.length; i++) {
-        if (allSockets[i].room == currentUserRoom) {
-          allSockets[i].socket.send(parsedMessage.payload.message);
-        }
+      if (info.type === "chat") {
+        const currentUser = allSocket.find((x) => x.socket == ws);
+        allSocket.map((e) => {
+          if (e.roomid == currentUser?.roomid) {
+            e.socket.send(
+              JSON.stringify({
+                name: info.payload.name,
+                message: info.payload.message,
+              })
+            );
+          }
+        });
       }
+    } catch (error) {
+      console.log(error);
     }
   });
+
+  ws.on("close", () => {
+    userCount--;
+    console.log(userCount);
+  });
 });
+
+console.log("Server is running at port:- ws://localhost:8080");
